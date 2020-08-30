@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { Platform } from '@ionic/angular';
 
+import { INotificationPayload } from 'cordova-plugin-fcm-with-dependecy-updated';
 import { FCM } from 'cordova-plugin-fcm-with-dependecy-updated/ionic/ngx';
 
 @Component({
@@ -11,32 +12,43 @@ import { FCM } from 'cordova-plugin-fcm-with-dependecy-updated/ionic/ngx';
 export class HomePage {
   public hasPermission: boolean;
   public token: string;
+  public pushPayload: INotificationPayload;
 
   constructor(private platform: Platform, private fcm: FCM) {
     this.setupFCM();
   }
   private async setupFCM() {
     await this.platform.ready();
+    console.log('FCM setup started');
 
-    console.log('FCM SETUP INIT');
     if (!this.platform.is('cordova')) {
       return;
     }
+    console.log('In cordova platform');
 
-    console.log('IN CORDOVA');
+    console.log('Subscribing to token updates');
+    this.fcm.onTokenRefresh().subscribe((newToken) => {
+      this.token = newToken;
+      console.log('onTokenRefresh received event with: ', newToken);
+    });
+
+    console.log('Subscribing to new notifications');
+    this.fcm.onNotification().subscribe((payload) => {
+      this.pushPayload = payload;
+      console.log('onNotification received event with: ', payload);
+    });
 
     this.hasPermission = await this.fcm.requestPushPermission();
-    console.log('CHECK hasPermission:', this.hasPermission);
+    console.log('requestPushPermission result: ', this.hasPermission);
 
     this.token = await this.fcm.getToken();
-    console.log('CHECK getToken: ' + this.token);
+    console.log('getToken result: ', this.token);
 
-    console.log('ON NOTIFICATION SUBSCRIBE');
-    this.fcm
-      .onTokenRefresh()
-      .subscribe((newToken) => console.log('NEW TOKEN:', newToken));
-    this.fcm
-      .onNotification()
-      .subscribe((payload: object) => console.log('ON NOTIFICATION:', payload));
+    this.pushPayload = await this.fcm.getInitialPushPayload();
+    console.log('getInitialPushPayload result: ', this.pushPayload);
+  }
+
+  public get pushPayloadString() {
+    return JSON.stringify(this.pushPayload, null, 4);
   }
 }
